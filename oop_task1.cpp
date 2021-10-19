@@ -6,10 +6,10 @@ class basic_str {
 protected:
     char* str_value;
     int str_length;
-    void copy(const basic_str& str) {
-        str_length = strlen(str.str_value);
+    void copy(const char* str) {
+        str_length = strlen(str);
         str_value = new char[str_length + 1];
-        strcpy(str_value, str.str_value);
+        strcpy(str_value, str);
     }
 public:
 
@@ -30,14 +30,12 @@ public:
 
     // копия строки
     basic_str(const basic_str& str) {
-        copy(str);
+        copy(str.str_value);
     }
 
     // конструктор принимающий zero-terminated строку
     basic_str(const char* s) {
-        str_length = strlen(s);
-        str_value = new char[str_length + 1];
-        strcpy(str_value, s);
+        copy(s);
     }
 
     // деструктор
@@ -62,25 +60,27 @@ public:
     }
 
     // ввод строки
-    void input_str(istream& stream) {
+    friend istream& operator>> (istream& stream, basic_str& str) {
         char c;
-        delete[] str_value; // очищаем строку
-        str_value = new char[buffer_size];
         while (stream.get(c) && c != '\n') {
-            push_back(c);
+            str.push_back(c);
         }
+        return stream;
     }
 
     // вывод строки
-    void output_str(ostream& stream) {
-        stream << "" << str_value << endl;
+    friend ostream& operator<< (ostream& stream, const basic_str& str) {
+        for (int i = 0; i < str.str_length; i++) {
+            stream << str.str_value[i];
+        }
+        return stream;
     }
 
     // перегружаем =
     basic_str& operator= (const basic_str& str) {
         if (this != &str) {
             delete [] str_value;
-            copy(str);
+            copy(str.str_value);
         }
         return *this;
     }
@@ -93,10 +93,10 @@ public:
     }
 
     // конкатенация строк (перегружаем +)
-    friend basic_str operator+ (const basic_str& summand1, const basic_str& summand2) {
-        basic_str sum(summand1);
-        for (int i = 0; i < summand2.str_length; i++) {
-            sum.push_back(summand2.str_value[i]);
+    basic_str operator+ (const basic_str& summand) {
+        basic_str sum(str_value);
+        for (int i = 0; i < summand.str_length; i++) {
+            sum.push_back(summand.str_value[i]);
         }
         return sum;
     }
@@ -107,7 +107,7 @@ public:
             cerr << "Index out of range: index = "<< index;
             throw out_of_range("out_of_range exception");
         }
-            return str_value[index];
+        return str_value[index];
     }
 
     // взятие подстроки (перегружаем скобочки)
@@ -118,9 +118,9 @@ public:
             throw out_of_range("out_of_range exception");
         }
         newstr.str_value = new char[index_last - index_first + 2];
-            for (int i = index_first; i <= index_last; i++) {
-                newstr.push_back(str_value[i]);
-            }
+        for (int i = index_first; i <= index_last; i++) {
+            newstr.push_back(str_value[i]);
+        }
         return newstr;
     }
 
@@ -135,13 +135,12 @@ public:
 
     // перегружаем ==
     bool operator== (const basic_str& str1) {
-        bool flag = 1;
-            for (int i = 0; i < str_length; i++) {
-                if (str1.str_value[i] != str_value[i]) {
-                    flag = 0;
-                    break;
-                }
+        bool flag = true;
+        for (int i = 0; i < str_length; i++) {
+            if (str1.str_value[i] != str_value[i]) {
+                return false;
             }
+        }
         return flag;
     }
 
@@ -157,10 +156,11 @@ public:
             if (substr == subtrahend) {
                 i += subtrahend.str_length;
                 i--;
+                delete[] substr.str_value;
                 substr.str_value = new char[1]; // очистка подстроки
                 continue;
             }
-                diff.push_back(str_value[i]);
+            diff.push_back(str_value[i]);
         }
         return diff;
     }
@@ -178,6 +178,7 @@ public:
                 i += str1.str_length;
                 i--;
                 newstr+=str2;
+                delete[] substr.str_value;
                 substr.str_value = new char[1];
                 continue;
             }
@@ -192,12 +193,12 @@ int main() {
     ofstream fout("output.txt");
 
     basic_str str1, str2, str3;
-    str1.input_str(fin);
-    str2.input_str(fin);
-    str3.input_str(fin);
+    fin >> str1;
+    fin >> str2;
+    fin >> str3;
 
     str1 = str1.replace(str2, str3);
-    str1.output_str(fout);
+    fout << str1;
 
     fin.close();
     fout.close();
