@@ -6,13 +6,15 @@
 using namespace std;
 
 class Expression {
-public:
+protected:
     string contents;
-    virtual void print() {
-        cout << contents;
-    }
+public:
     virtual int eval(const string& values) = 0; // вычисление значения
     virtual Expression* derivative(const string& vrbl) = 0; // дифференцирование
+    string getcontents() {
+        return contents;
+    }
+    virtual ~Expression() {}
 };
 
 class Number: public Expression {
@@ -23,7 +25,7 @@ public:
         contents = to_string(num);
     }
     int eval(const string& values) {
-        return  value;
+        return value;
     }
     Expression* derivative(const string& vrbl) {
         return new Number(0);
@@ -52,12 +54,23 @@ public:
     }
 };
 
-class Add: public Expression {
+class MathOperation: public Expression {
+protected:
     Expression *val1, *val2;
+    char oper_type;
 public:
-    Add(Expression *summand1, Expression *summand2): val1(summand1), val2(summand2) {
-        contents = "(" + val1->contents + "+" + val2->contents + ")";
+    MathOperation(Expression *operator1, Expression *operator2, char opert): val1(operator1), val2(operator2), oper_type(opert) {
+        contents = "(" + val1->getcontents() + opert + val2->getcontents() + ")";
     }
+    ~MathOperation() {
+        delete val1;
+        delete val2;
+    }
+};
+
+class Add: public MathOperation {
+public:
+    Add(Expression *summand1, Expression *summand2): MathOperation(summand1, summand2, '+') {}
     int eval(const string& values) {
         int res = val1->eval(values) + val2->eval(values);
         return res;
@@ -67,12 +80,9 @@ public:
     }
 };
 
-class Sub: public Expression {
-    Expression *val1, *val2;
+class Sub: public MathOperation {
 public:
-    Sub(Expression *subtrahend, Expression *minuend): val1(subtrahend), val2(minuend) {
-        contents = "(" + val1->contents + "-" + val2->contents + ")";
-    }
+    Sub(Expression *subtrahend, Expression *minuend): MathOperation(subtrahend, minuend, '-') {}
     int eval(const string& values) {
         int res = val1->eval(values) - val2->eval(values);
         return res;
@@ -82,33 +92,29 @@ public:
     }
 };
 
-class Mul: public Expression {
-    Expression *val1, *val2;
+class Mul: public MathOperation {
 public:
-    Mul(Expression *mult1, Expression *mult2): val1(mult1), val2(mult2) {
-        contents = "(" + val1->contents + "*" + val2->contents + ")";
-    }
+    Mul(Expression *mult1, Expression *mult2): MathOperation(mult1, mult2, '*') {}
     int eval(const string& values) {
         int res = val1->eval(values) * val2->eval(values);
         return res;
     }
     Expression* derivative(const string& vrbl) {
-        return new Add(new Mul(val1->derivative(vrbl), val2), new Mul(val1, val2->derivative(vrbl)));
+        Expression *copy1 = val1, *copy2 = val2;
+        return new Add(new Mul(val1->derivative(vrbl), copy2), new Mul(copy1, val2->derivative(vrbl)));
     }
 };
 
-class Div: public Expression{
-    Expression *val1, *val2;
+class Div: public MathOperation {
 public:
-    Div(Expression *divd1, Expression *divd2): val1(divd1), val2(divd2) {
-        contents = "(" + val1->contents + "/" + val2->contents + ")";
-    }
+    Div(Expression *divd1, Expression *divd2): MathOperation(divd1, divd2, '/') {}
     int eval(const string& values) {
         int res = val1->eval(values) / val2->eval(values);
         return res;
     }
     Expression* derivative(const string& vrbl) {
-        return new Add(new Div(val1->derivative(vrbl), val2), new Div(val1, val2->derivative(vrbl)));
+        Expression *copy1 = val1, *copy2 = val2;
+        return new Add(new Div(val1->derivative(vrbl), copy2), new Div(copy1, val2->derivative(vrbl)));
     }
 };
 
@@ -120,7 +126,7 @@ Expression* simple_parse(const string& token_str) {
     if (isalpha(token_str[0])) {
         return new Variable(token_str);
     }
-};
+}
 
 // парсер для операторов
 Expression* operator_parse(char op, Expression* exp1, Expression* exp2) {
@@ -145,15 +151,12 @@ int precedence(char op){
     if(op == '*'||op == '/')
         return 2;
     return 0;
-};
+}
 
 // проверка на оператора
 bool isoperator(char c) {
-    if (c == '+' || c == '-' || c == '*' || c == '/') {
-        return true;
-    }
-    return false;
-};
+    return (c == '+' || c == '-' || c == '*' || c == '/');
+}
 
 Expression* parse(const string& token_str) {
     stack<char> operator_stack; // стек операторов
@@ -216,6 +219,8 @@ Expression* parse(const string& token_str) {
             operator_stack.pop();
         }
     }
+    delete temp1;
+    delete temp2;
     return output.top();
 }
 
@@ -227,7 +232,9 @@ int main() {
     fin >> inp_str;
     Expression *e = parse(inp_str);
     Expression *de = e->derivative("x");
-    fout << de->contents;
+    fout << de->getcontents();
+    delete e;
+    delete de;
 
     fin.close();
     fout.close();
