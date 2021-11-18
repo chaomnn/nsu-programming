@@ -19,7 +19,7 @@ template<> bool compare(double a, double b) {
 template <typename K, typename V>
 class HashMap {
     static const int default_size = 8;
-    constexpr static const double rehash_factor = 0.6;
+    constexpr static double rehash_factor = 0.6;
 
     int capacity;
     int size;
@@ -39,7 +39,7 @@ class HashMap {
         swap(table, new_table);
         for (auto i = 0; i < (capacity/2); i++) {
             if (new_table[i] && new_table[i] != deleted) {
-                Insert(new_table[i]->first, new_table[i]->second);
+                insert(new_table[i]->first, new_table[i]->second);
             }
         }
         for (auto i = 0; i < (capacity/2); i++) {
@@ -47,6 +47,11 @@ class HashMap {
                 delete new_table[i];
             }
         }
+        delete[] new_table;
+    }
+
+    size_t get_hash(K key) {
+        return hash<K>{}(key) % capacity;
     }
 
 public:
@@ -72,30 +77,30 @@ public:
         delete[] table;
     }
 
-    void Insert(const K& add_key, const V& value) {
+    void insert(const K& key, const V& value) {
         if (size + 1 > rehash_factor*capacity) {
             Rehash();
         }
-        size_t hash_v = hash<K>{}(add_key) % capacity;
-        if (table[hash_v] != nullptr && table[hash_v] != deleted && !(compare(add_key, table[hash_v]->first))) { // если случилась коллизия
+        size_t hash_v = get_hash(key); // ниже используется компаратор, а не ==, тк ключи могут быть даблами
+        if (table[hash_v] != nullptr && table[hash_v] != deleted && !(compare(key, table[hash_v]->first))) { // если случилась коллизия
             while (table[hash_v] != nullptr) {
                 hash_v++;
                 hash_v %= capacity;
             }
         }
-        if (table[hash_v] != nullptr && (compare(add_key, table[hash_v]->first))) { // если ключи одинаковые
+        if (table[hash_v] != nullptr && (compare(key, table[hash_v]->first))) { // если ключи одинаковые
             table[hash_v]->second = value;
         }
         else {
-            table[hash_v] = new pair<K, V>(add_key, value);
+            table[hash_v] = new pair<K, V>(key, value);
             size++;
         }
     }
 
-    void Remove(const K& delete_key) {
-        size_t hash_v = hash<K>{}(delete_key) % capacity;
+    void remove(const K& key) {
+        size_t hash_v = get_hash(key);
         while (table[hash_v] != nullptr) {
-            if (compare(delete_key, table[hash_v]->first)) {
+            if (compare(key, table[hash_v]->first)) {
                 table[hash_v] = deleted;
                 size--;
                 break;
@@ -105,10 +110,10 @@ public:
         }
     }
 
-    V Find(const K& find_key) {
-        size_t hash_v = hash<K>{}(find_key) % capacity;
+    V find(const K& key) {
+        size_t hash_v = get_hash(key);
         while (table[hash_v] != nullptr) {
-            if (compare(find_key, table[hash_v]->first)) {
+            if (compare(key, table[hash_v]->first)) {
                 return table[hash_v]->second;
             }
             hash_v++;
@@ -149,10 +154,10 @@ public:
             pstream >> command >> key;
             if (command == 'A') {
                 pstream >> value;
-                Insert(key, value);
+                insert(key, value);
             }
             else {
-                Remove(key);
+                remove(key);
             }
         }
     }
@@ -175,7 +180,7 @@ public:
         Iterator(HashMap<K, V>* map, pair<K, V>* elem, int index): elem(elem), map(map), index(index) {}
         Iterator(const Iterator& iter): elem(iter.elem), map(iter.map), index(iter.index) {}
         Iterator& operator++() {
-            if (*this == map->last()) {
+            if (index >= map->capacity-1) {
                 *this = map->end();
                 return *this;
             }
@@ -222,68 +227,40 @@ public:
     }
 };
 
-void createHashMap(char key_type, char value_type, int n, istream& stream, ostream& ostream) {
+template<typename K, typename V>
+void print(HashMap<K, V>* map, int n, istream& stream, ostream& ostream) {
+    map->parse(n, stream);
+    ostream << map->getsize() << ' ' << map->get_unique();
+    delete map;
+}
+
+template <typename V> void read_key_type(char key_type, int n, istream& stream, ostream& ostream) {
     if (key_type == 'I') {
-        if (value_type == 'I') {
-            auto* my_map = new HashMap<int, int>;
-            my_map->parse(n, stream);
-            ostream << my_map->getsize() << ' ' << my_map->get_unique();
-            delete my_map;
-        }
-        else if (value_type == 'D') {
-            auto* my_map = new HashMap<int, double>;
-            my_map->parse(n, stream);
-            ostream << my_map->getsize() << ' ' << my_map->get_unique();
-            delete my_map;
-        }
-        else if (value_type == 'S') {
-            auto* my_map = new HashMap<int, string>;
-            my_map->parse(n, stream);
-            ostream << my_map->getsize() << ' ' << my_map->get_unique();
-            delete my_map;
-        }
+        auto* my_map = new HashMap<int, V>;
+        print(my_map, n, stream, ostream);
     }
     else if (key_type == 'D') {
-        if (value_type == 'I') {
-            auto* my_map = new HashMap<double, int>;
-            my_map->parse(n, stream);
-            ostream << my_map->getsize() << ' ' << my_map->get_unique();
-            delete my_map;
-        }
-        else if (value_type == 'D') {
-            auto* my_map = new HashMap<double, double>;
-            my_map->parse(n, stream);
-            ostream << my_map->getsize() << ' ' << my_map->get_unique();
-            delete my_map;
-        }
-        else if (value_type == 'S') {
-            auto* my_map = new HashMap<double, string>;
-            my_map->parse(n, stream);
-            ostream << my_map->getsize() << ' ' << my_map->get_unique();
-            delete my_map;
-        }
+        auto* my_map = new HashMap<double, V>;
+        print(my_map, n, stream, ostream);
     }
-    else if (key_type == 'S') {
-        if (value_type == 'I') {
-            auto* my_map = new HashMap<string, int>;
-            my_map->parse(n, stream);
-            ostream << my_map->getsize() << ' ' << my_map->get_unique();
-            delete my_map;
-        }
-        else if (value_type == 'D') {
-            auto* my_map = new HashMap<string, double>;
-            my_map->parse(n, stream);
-            ostream << my_map->getsize() << ' ' << my_map->get_unique();
-            delete my_map;
-        }
-        else if (value_type == 'S') {
-            auto* my_map = new HashMap<string, string>;
-            my_map->parse(n, stream);
-            ostream << my_map->getsize() << ' ' << my_map->get_unique();
-            delete my_map;
-        }
+    else {
+        auto* my_map = new HashMap<string, V>;
+        print(my_map, n, stream, ostream);
     }
 }
+
+void create_map(char key_type, char value_type, int n, istream& stream, ostream& ostream) {
+    if (value_type == 'I') {
+        read_key_type<int>(key_type, n, stream, ostream);
+    }
+    else if (value_type == 'D') {
+        read_key_type<double>(key_type, n, stream, ostream);
+    }
+    else if (value_type == 'S') {
+        read_key_type<string>(key_type, n, stream, ostream);
+    }
+}
+
 int main() {
     ifstream fin("input.txt");
     ofstream fout("output.txt");
@@ -292,7 +269,7 @@ int main() {
     char key_type, value_type;
     fin >> key_type >> value_type >> n;
 
-    createHashMap(key_type, value_type, n, fin, fout);
+    create_map(key_type, value_type, n, fin, fout);
 
     fin.close();
     fout.close();
