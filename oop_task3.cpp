@@ -110,18 +110,6 @@ public:
         }
     }
 
-    V find(const K& key) {
-        size_t hash_v = get_hash(key);
-        while (table[hash_v] != nullptr) {
-            if (compare(key, table[hash_v]->first)) {
-                return table[hash_v]->second;
-            }
-            hash_v++;
-            hash_v %= capacity;
-        }
-        return deleted->second; // возвращает пустое значение, если ничего не найдено
-    }
-
     int getsize() {
         return size;
     }
@@ -224,6 +212,18 @@ public:
 
     Iterator end() {
         return Iterator();
+    }
+
+    Iterator find(const K& key) {
+        size_t hash_v = get_hash(key);
+        while (table[hash_v] != nullptr) {
+            if (compare(key, table[hash_v]->first)) {
+                return Iterator(this, hash_v);
+            }
+            hash_v++;
+            hash_v %= capacity;
+        }
+        return end(); // возвращает конечный итератор, если ничего не найдено
     }
 };
 
